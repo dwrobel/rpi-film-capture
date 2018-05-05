@@ -54,13 +54,13 @@ class fcControl():
         self.redled.off()
         self.yellowled.off()
         self.motor.stop()
-        GPIO.cleanup()
+#        GPIO.cleanup()
 
     def motor_wake(self):
         self.motor.wake()
     def motor_sleep(self):
         self.motor.sleep()
-        
+
 
     def motor_fwd(self, speed=False):
         if (not speed):
