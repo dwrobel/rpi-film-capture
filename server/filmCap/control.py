@@ -14,6 +14,7 @@ class fcControl():
     red_pin = 3
     yellow_pin = 4
     trigger_pin = 24
+    trigger_pin_active = False
     speed = 100
     frame_advance_pct=50 #[%]  #This is the CUSHION - we advance 100 minus this amt after trigger
 
@@ -24,7 +25,7 @@ class fcControl():
         self.redled = lightControl(self.red_pin)
         self.yellowled = lightControl(self.yellow_pin)
         self.motor = stepperControl()
-        GPIO.setup(self.trigger_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(self.trigger_pin, GPIO.IN, pull_up_down = GPIO.PUD_UP if self.trigger_pin_active == False else GPIO.PUD_DOWN)
         self.motorstate = 0
         self.smart_motor = False
         self.smart_headroom = 25
@@ -54,6 +55,7 @@ class fcControl():
         self.redled.off()
         self.yellowled.off()
         self.motor.stop()
+        self.motor_sleep()
 #        GPIO.cleanup()
 
     def motor_wake(self):
@@ -88,7 +90,7 @@ class fcControl():
         newtime = timer()
         phototime = newtime - self.triggertime
         self.phototimes.appendleft(phototime)
-        
+
 class lightControl:
     def __init__(self, pin, reversed=False):
 	self.pin = pin

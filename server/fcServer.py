@@ -5,6 +5,7 @@ import picamera
 import threading        #should probably change threads to processes. Sometime.
 import multiprocessing  #using processes instead of threads for frame advance.
 import filmCap
+import sys
 from time import sleep
 import RPi.GPIO as GPIO
 from filmCap import config
@@ -246,9 +247,9 @@ def take_a_photo(channel):  #callback triggered by frame advance setting GPIO pi
     global fc, auto_advance, cap_event, calibrate_motor_every, framecount
     cam = config.cam
     #sleep(0.03)  #wait before checking status of trigger, to avoid false triggers
-    logging.debug("Trigger "+str(GPIO.input(fc.trigger_pin))+str(cam.mode))
-    if (((channel == 0) or (GPIO.input(fc.trigger_pin) == 1)) and cam.mode==cam.CAPTURING):  #only take this photo if we're in capture mode
-        logging.debug("Trigger Valid Channel "+str(channel)+" Trigger Pin "+str(GPIO.input(fc.trigger_pin)))
+    logging.debug("take_a_photo: +++ "+str(GPIO.input(fc.trigger_pin))+str(cam.mode))
+    if (((channel == 0) or (GPIO.input(fc.trigger_pin) == fc.trigger_pin_active)) and cam.mode==cam.CAPTURING):  #only take this photo if we're in capture mode
+        logging.debug("take_a_photo: Trigger Valid Channel "+str(channel)+" Trigger Pin "+str(GPIO.input(fc.trigger_pin)))
         #if channel!=0: #photo hasn't been triggered, so we're not monitoring it
         while cap_event.is_set(): #Here, we're waiting for the motor to finish winding, so the setup is still for the pictue. 
             sleep(.05)		#You may be able to remove this and speed up captures by starting the photo immediately after trigger, while the
@@ -262,10 +263,10 @@ def take_a_photo(channel):  #callback triggered by frame advance setting GPIO pi
         while i<= cam.bracketing:
             while not len(config.pool):  #if we don't have enough processors for the next photo (maybe because of network congestion or a busy client)
                 sleep(1)                #the we just wait until we do.  This should be rare, but it will happen
-            logging.debug("Photo "+str(i)+" taken "+str(cam.shutter_speed)+" "+str(cam.analog_gain)+" "+str(cam.digital_gain))
+            logging.debug("take_a_photo: Photo "+str(i)+" taken "+str(cam.shutter_speed)+" "+str(cam.analog_gain)+" "+str(cam.digital_gain))
             imgflag = 's' if cam.bracketing==1 else 'a' if i<cam.bracketing else 'b'
             take_and_queue_photo(imgflag)
-            logging.debug("Photo "+imgflag+" taken "+str(cam.shutter_speed)+" "+str(cam.analog_gain)+" "+str(cam.digital_gain))
+            logging.debug("take_a_photo: Photo "+imgflag+" taken "+str(cam.shutter_speed)+" "+str(cam.analog_gain)+" "+str(cam.digital_gain))
             #trying AFTER photo, to avoid delaying at beginning.
             nextshot=i+1 if i<cam.bracketing else 1
             cam.shutter_speed = bracketSS(cam.stops, nextshot, cam.bracketing, cam.ss)
@@ -280,8 +281,8 @@ def take_a_photo(channel):  #callback triggered by frame advance setting GPIO pi
         if auto_advance:
             while cap_event.is_set(): #perhaps we're done w/ photo before last wind is finished?  If so, wait for it.
                 sleep(.05)
-            if GPIO.input(fc.trigger_pin) == 1: #if motor's done winding and we're still triggered, there's a problem - log it and stop
-                logging.debug("Capture Trigger still live after capture - dang.  Need to calibrate early")
+            if GPIO.input(fc.trigger_pin) == fc.trigger_pin_active: #if motor's done winding and we're still triggered, there's a problem - log it and stop
+                logging.debug("take_a_photo: Capture Trigger still live after capture - dang.  Need to calibrate early")
                 framecount=0
                 fc.calibrate() #wind the motor more slowly to the next frame.
                 take_a_photo(0)
@@ -294,8 +295,9 @@ def take_a_photo(channel):  #callback triggered by frame advance setting GPIO pi
             else:
                 framecount += 1
                 cap_event.set()  #send the signal to the motor winder
-            
-        logging.debug("Photo taken "+ str(framecount))
+
+        logging.debug("take_a_photo: Photo taken "+ str(framecount))
+    logging.debug("take_a_photo: --- "+str(GPIO.input(fc.trigger_pin))+str(cam.mode))
 
 def bracketSS(stops, shot, bkt, ss):   #determine shutter speed for arbitrary number of bracketed shots, at arbitrary spread of stops
     if bkt == 1:
@@ -357,12 +359,14 @@ driverprocess.start()
 
 GPIO.setwarnings(False)  #to suppress irrelevant messages
 
+exit_code = 1
+
 try:
     config.cam= filmCap.fcCamera()
     fc = filmCap.fcControl()
     logging.debug("Control Object Created")
     #add callback for triggering pictures
-    GPIO.add_event_detect(fc.trigger_pin, GPIO.FALLING, callback=take_a_photo, bouncetime = 25)  #Can be
+    GPIO.add_event_detect(fc.trigger_pin, GPIO.FALLING if fc.trigger_pin_active == False else GPIO.RISING, callback=take_a_photo, bouncetime = 150)  #Can be
     logging.debug("GPIO Setup Complete")
 
 
@@ -377,8 +381,7 @@ try:
         logging.debug("Exit Event Set")
 except KeyboardInterrupt as inst:#Exception as inst:
     logging.debug("Kbd Interrupt")
-    logging.debug(type(inst))    # the exception instance
-    #pass
+    exit_code = 0
 finally:
     logging.debug("Exiting....")
     config.exitEvent.set()  #this is the threading.event to stop the preview & streamer threads
@@ -399,5 +402,9 @@ finally:
         img_socket.close()
     if ctrl_socket:
         ctrl_socket.close()
-    fc.cleanup()    #Stop motor, light off, release GPIO pins
+    try:
+        fc.cleanup()    #Stop motor, light off, release GPIO pins
+    except NameError:
+        pass
     logging.info("All sockets closed - exited")
+    sys.exit(exit_code)
