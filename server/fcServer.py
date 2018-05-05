@@ -333,9 +333,11 @@ def take_and_queue_photo(imgflag):
 logging.info("Starting")
 #Set up sockets and connections
 img_socket = socket.socket()
+img_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 img_socket.bind(('0.0.0.0', 8000))
 img_socket.listen(0)
 ctrl_socket = socket.socket()
+ctrl_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 ctrl_socket.bind(('0.0.0.0', 8001))
 ctrl_socket.listen(0)
 
@@ -360,14 +362,13 @@ try:
     fc = filmCap.fcControl()
     logging.debug("Control Object Created")
     #add callback for triggering pictures
-    GPIO.add_event_detect(fc.trigger_pin, GPIO.RISING, callback=take_a_photo, bouncetime = 25)  #Can be 
+    GPIO.add_event_detect(fc.trigger_pin, GPIO.FALLING, callback=take_a_photo, bouncetime = 25)  #Can be
     logging.debug("GPIO Setup Complete")
 
 
     setupConns(img_socket, ctrl_socket)
     previewthread.start()
     logging.debug("previewthread started")
-
     while not config.exitEvent.is_set():
         data=ctrl_reader.readline(1)
         if data:
