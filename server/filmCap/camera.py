@@ -9,7 +9,7 @@ class fcCamera(picamera.PiCamera):
     CAPTURING = 2
     res_preview = (1296, 972)
     res_capture = (2592, 1944)
-    resolutions = [(2592,1944),(1600,1200),(1440,1080),(1296,972),(1024,768),(800,600)]
+    resolutions = [(3240,2464),(2592,1944),(1600,1200),(1440,1080),(1296,972),(1024,768),(800,600)]
     capsize=resolutions[0]
     default_framerate=15
     sendss=False
