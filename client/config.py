@@ -2,7 +2,7 @@ import collections
 import numpy as np
 import cv2
 
-server_ip = "raspberrypi.local"
+server_ip = "192.168.160.158"
 app = False
 test_mode = False
 exitFlag = False  
