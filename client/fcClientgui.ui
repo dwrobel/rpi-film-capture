@@ -26,7 +26,7 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>0</number>
+    <number>2</number>
    </property>
    <widget class="QWidget" name="tab_setup">
     <attribute name="title">
@@ -1038,6 +1038,11 @@
        <height>27</height>
       </rect>
      </property>
+     <item>
+      <property name="text">
+       <string>3240x2464</string>
+      </property>
+     </item>
      <item>
       <property name="text">
        <string>2592x1944</string>
